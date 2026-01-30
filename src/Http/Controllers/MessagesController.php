@@ -182,7 +182,7 @@ class MessagesController extends Controller
             ]);
 
             // $this->sendPushNotification("New Message!", $request['message'], $request['id']);
-            $this->sendPushNotification("Admin", $request['message'], $request['id']);
+            // $this->sendPushNotification("Admin", $request['message'], $request['id']);
         }
 
         // send the response
@@ -367,8 +367,9 @@ class MessagesController extends Controller
     {
         $getRecords = null;
         $input = trim(filter_var($request['input']));
-        $records = User::where('name', 'LIKE', "%{$input}%")
+        $records = User::where('customer_name', 'LIKE', "%{$input}%")
             ->paginate($request->per_page ?? $this->perPage);
+
         foreach ($records->items() as $record) {
             $getRecords .= view('Chatify::layouts.listItem', [
                 'get' => 'search_item',

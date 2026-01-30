@@ -273,12 +273,14 @@ class ChatifyMessenger
         try {
             // get last message
             $lastMessage = $this->getLastMessageQuery($user->id);
+
             // Get Unseen messages counter
             $unseenCounter = $this->countUnseenMessages($user->id);
             if ($lastMessage) {
-                $lastMessage->created_at = $lastMessage->created_at->toIso8601String();
                 $lastMessage->timeAgo = $lastMessage->created_at->diffForHumans();
+                $lastMessage->created_at = $lastMessage->created_at->toIso8601String();
             }
+
             return view('Chatify::layouts.listItem', [
                 'get' => 'users',
                 'user' => $this->getUserWithAvatar($user),

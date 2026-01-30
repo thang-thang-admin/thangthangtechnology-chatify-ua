@@ -509,18 +509,18 @@ class MessagesController extends Controller
     public function getContacts(Request $request)
     {
         // get all users that received/sent message from/to [Auth user]
-        $users = Message::join('users',  function ($join) {
-            $join->on('ch_messages.from_id', '=', 'users.id')
-                ->orOn('ch_messages.to_id', '=', 'users.id');
+        $users = Message::join('customer_infos',  function ($join) {
+            $join->on('ch_messages.from_id', '=', 'customer_infos.id')
+                ->orOn('ch_messages.to_id', '=', 'customer_infos.id');
         })
             ->where(function ($q) {
                 $q->where('ch_messages.from_id', Auth::guard('sanctum')->user()->id)
                     ->orWhere('ch_messages.to_id', Auth::guard('sanctum')->user()->id);
             })
-            ->where('users.id', '!=', Auth::guard('sanctum')->user()->id)
-            ->select('users.*', DB::raw('MAX(ch_messages.created_at) max_created_at'))
+            ->where('customer_infos.id', '!=', Auth::guard('sanctum')->user()->id)
+            ->select('customer_infos.*', DB::raw('MAX(ch_messages.created_at) max_created_at'))
             ->orderBy('max_created_at', 'desc')
-            ->groupBy('users.id')
+            ->groupBy('customer_infos.id')
             ->paginate($request->per_page ?? $this->perPage);
 
         return response()->json([
