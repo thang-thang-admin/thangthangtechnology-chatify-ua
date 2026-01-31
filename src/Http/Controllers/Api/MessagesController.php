@@ -263,7 +263,7 @@ class MessagesController extends Controller
                 'message' => Chatify::messageCard($messageData, true)
             ]);
 
-            $this->sendPushNotification(Auth::guard('sanctum')->user()->name, $request['message'], $request['id']);
+            $this->sendPushNotificationCustomer(Auth::guard('sanctum')->user()->name, $request['message'], $request['id']);
 
             // }
         }
@@ -716,22 +716,24 @@ class MessagesController extends Controller
         ], 200);
     }
 
-    public function sendPushNotification($title, $message, $customerId = null, $imgUrl = null)
+    public function sendPushNotificationCustomer($title, $message, $customerId = null, $imgUrl = null)
     {
-        $credentialsFilePath = $_SERVER['DOCUMENT_ROOT'] . '/assets/firebase/fcm-server-key.json';
+        // $credentialsFilePath = $_SERVER['DOCUMENT_ROOT'] . '/assets/firebase/fcm-server-key.json';
+        $credentialsFilePath = public_path('firebase/rain-customer-firebase.json');
+        $project_id = json_decode(file_get_contents($credentialsFilePath), true)['project_id'];
+
         $client = new Google_Client();
         $client->setAuthConfig($credentialsFilePath);
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
         $client->refreshTokenWithAssertion();
         $token = $client->getAccessToken();
         $access_token = $token['access_token'];
-        $project_id = env('APP_FCM_PROJECT_ID');
 
         $url = "https://fcm.googleapis.com/v1/projects/".$project_id."/messages:send";        
 
-        $customer = User::with('fcmTokens')->find($customerId);
+        $customer = User::find($customerId);
 
-        if (!$customer || $customer->fcmTokens->isEmpty()) {
+        if (!$customer) {
             return false;
         }
 
@@ -748,36 +750,100 @@ class MessagesController extends Controller
             'message_id' => "1"
         ];
 
-        foreach ($customer->fcmTokens as $token) {
-            $data = [
-                'token' => $token->fcm_token_key,
-                'notification' => $notifications,
-                'data' => $dataPayload,
-                'apns' => [
-                    'headers' => [
-                        'apns-priority' => '10',
-                    ],
-                    'payload' => [
-                        'aps' => [
-                            'sound' => 'default',
-                        ]
-                    ],
+        $data = [
+            'token' => $customer->fcm_token,
+            'notification' => $notifications,
+            'data' => $dataPayload,
+            'apns' => [
+                'headers' => [
+                    'apns-priority' => '10',
                 ],
-                'android' => [
-                    'priority' => 'high',
-                    'notification' => [
+                'payload' => [
+                    'aps' => [
                         'sound' => 'default',
                     ]
                 ],
-            ];
+            ],
+            'android' => [
+                'priority' => 'high',
+                'notification' => [
+                    'sound' => 'default',
+                ]
+            ],
+        ];
 
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer $access_token",
-                'Content-Type' => "application/json"
-            ])->post($url, [
-                'message' => $data
-            ]);
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer $access_token",
+            'Content-Type' => "application/json"
+        ])->post($url, [
+            'message' => $data
+        ]);
+
+        return true;
+    }
+
+    public function sendPushNotificationRider($title, $message, $driverId = null, $imgUrl = null)
+    {
+        $credentialsFilePath = public_path('firebase/rain-rider-firebase.json');
+
+        $project_id = json_decode(file_get_contents($credentialsFilePath), true)['project_id'];
+
+        $client = new Google_Client();
+        $client->setAuthConfig($credentialsFilePath);
+        $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
+        $client->refreshTokenWithAssertion();
+        $token = $client->getAccessToken();
+        $access_token = $token['access_token'];
+
+        $url = "https://fcm.googleapis.com/v1/projects/".$project_id."/messages:send";        
+
+        $driver = DB::table('drivers')->where('id', $driverId)->first();
+
+        if (!$driver) {
+            return false;
         }
+
+        $notifications = [
+            'title' => $title,
+            'body' => $message,
+        ];
+
+        if ($imgUrl) {
+            $notifications['image'] = $imgUrl;
+        }
+
+        $dataPayload = [
+            'message_id' => "1"
+        ];
+
+        $data = [
+            'token' => $driver->fcm_token,
+            'notification' => $notifications,
+            'data' => $dataPayload,
+            'apns' => [
+                'headers' => [
+                    'apns-priority' => '10',
+                ],
+                'payload' => [
+                    'aps' => [
+                        'sound' => 'default',
+                    ]
+                ],
+            ],
+            'android' => [
+                'priority' => 'high',
+                'notification' => [
+                    'sound' => 'default',
+                ]
+            ],
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer $access_token",
+            'Content-Type' => "application/json"
+        ])->post($url, [
+            'message' => $data
+        ]);
 
         return true;
     }
