@@ -205,6 +205,14 @@ class MessagesController extends Controller
         $attachment = null;
         $attachment_title = null;
 
+        $user = Auth::guard('sanctum')->user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $fromId = $user->id;
+
         //if there is attachment [file]
         if ($request->hasFile('file')) {
             // allowed extensions
@@ -242,7 +250,7 @@ class MessagesController extends Controller
             // send to database
             $message = Chatify::newMessage([
                 'type' => $request['type'],
-                'from_id' => Auth::guard('sanctum')->user()->id,
+                'from_id' => $fromId,
                 'to_id' => $request['to_id'],
                 'body' => htmlentities(trim($request['message']), ENT_QUOTES, 'UTF-8'),
                 'sent_by' => 'user',
@@ -366,7 +374,6 @@ class MessagesController extends Controller
         }
 
         try {
-            // Ensure recipient exists
             User::findOrFail($toId);
         } catch (ModelNotFoundException $e) {
             return response()->json([
@@ -376,9 +383,15 @@ class MessagesController extends Controller
             ], 200);
         }
 
-        $userId = Auth::guard('sanctum')->user()->id;
+        $user = Auth::guard('sanctum')->user();
 
-        // Fetch messages
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $userId = $user->id;
+
+        // ✅ Only fetch messages (NO block filter)
         $messages = ChMessage::where(function ($q) use ($userId, $toId) {
                 $q->where('from_id', $userId)->where('to_id', $toId);
             })
@@ -388,29 +401,8 @@ class MessagesController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-         // 👉 Only fetch blocks related to these two users (not all)
-        $blockedPairs = CustomerBlock::where('status', 1)
-            ->where(function ($q) use ($userId, $toId) {
-                $q->where(function ($q2) use ($userId, $toId) {
-                    $q2->where('blocker_id', $userId)->where('blocked_id', $toId);
-                })->orWhere(function ($q2) use ($userId, $toId) {
-                    $q2->where('blocker_id', $toId)->where('blocked_id', $userId);
-                });
-            })
-            ->get(['blocker_id', 'blocked_id']);
-
-        // Filter messages (remove blocked ones)
-        $filtered = $messages->reject(function ($message) use ($blockedPairs) {
-            return $blockedPairs->contains(function ($block) use ($message) {
-                return ($block->blocker_id == $message->from_id && $block->blocked_id == $message->to_id)
-                    || ($block->blocker_id == $message->to_id && $block->blocked_id == $message->from_id);
-            });
-        });
-        
-        $formatted = $filtered->map(function ($message) {
-            // [$attachment, $attachmentType] = $this->getAttachmentLink($message->attachment);
+        $formatted = $messages->map(function ($message) {
             [$attachment, $title, $attachmentType] = $this->getAttachmentLink($message->attachment);
-
 
             return [
                 'id' => $message->id,
@@ -427,7 +419,6 @@ class MessagesController extends Controller
             ];
         });
 
-
         return response()->json([
             'total' => $formatted->count(),
             'last_page' => 1,
@@ -435,6 +426,7 @@ class MessagesController extends Controller
             'messages' => $formatted,
         ]);
     }
+
     //user to user end
 
     /**
