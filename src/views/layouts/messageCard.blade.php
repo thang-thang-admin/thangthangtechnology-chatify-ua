@@ -37,7 +37,7 @@ $senderColor = $messenger_color ? $messenger_color : Chatify::getFallbackColor()
         @if (@$attachment->type == 'image')
             <div class="image-wrapper" style="text-align: {{ $sent_by == 'admin' ? 'end' : 'start' }}">
                 <div class="image-file chat-image"
-                    style="background-image: url('{{ Chatify::getAttachmentUrl($attachment->file) }}')">
+                    style="background-image: url('{{ $attachment->file }}')">
                     <div>{{ $attachment->title }}</div>
                 </div>
                 <div style="margin-bottom:5px">
