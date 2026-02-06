@@ -271,8 +271,11 @@ class MessagesController extends Controller
                 'message' => Chatify::messageCard($messageData, true)
             ]);
 
-            $this->sendPushNotificationCustomer(Auth::guard('sanctum')->user()->name, $request['message'], $request['id']);
-
+            if($request->type == 'user') {
+                $this->sendPushNotificationCustomer(Auth::guard('sanctum')->user()->name, $request['message'], $request['id']);
+            }else{
+                $this->sendPushNotificationRider(Auth::guard('sanctum')->user()->name, $request['message'], $request['id']);
+            }
             // }
         }
 
